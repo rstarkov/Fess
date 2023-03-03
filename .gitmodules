@@ -1,3 +1,6 @@
 [submodule "ThirdParty/ChessLib"]
 	path = ThirdParty/ChessLib
 	url = git@github.com:rudzen/ChessLib.git
+[submodule "ThirdParty/Gera.Chess"]
+	path = ThirdParty/Gera.Chess
+	url = git@github.com:Geras1mleo/Chess.git
