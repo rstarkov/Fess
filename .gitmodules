@@ -1,0 +1,3 @@
+[submodule "ThirdParty/ChessLib"]
+	path = ThirdParty/ChessLib
+	url = git@github.com:rudzen/ChessLib.git
