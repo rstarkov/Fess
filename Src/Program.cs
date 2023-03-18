@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -26,14 +26,9 @@ static class Program
     public static void Main()
     {
         //Tests.Test();
-        // END GAME BUG
-        //var board = ChessBoard.LoadFromFen("6k1/5ppp/K3p3/2q5/1r6/8/7r/7n b - - 5 35");
-        //board.Move("Ra2#"); // black
 
         var stockfish = new Stockfish();
         stockfish.Start();
-        //var foo = stockfish.AnalyseFenToDepth("7k/8/8/8/8/8/5r2/K5r1 w - - 0 1", 20);
-        //var foo = stockfish.AnalyseFenToDepth("4p2r/7k/4p1r1/6n1/8/8/8/K7 b - - 0 1", 20);
 
         LoadData();
         //ImportNewGames(LoadPgnGames(DownloadChessComPgn("???", 2023, 03)).Where(g => g.TimeControl is "600" or "900+10"));
@@ -55,24 +50,8 @@ static class Program
                 var start = DateTime.UtcNow;
                 var results = stockfish.AnalyseFenToDepth(position.Fen, depth, 5); // depth 28: 5=33 sec, 2=17 sec, 1=11 sec
                 Console.WriteLine($" {(DateTime.UtcNow - start).TotalSeconds:0.0} sec");
+                Ut.Assert(results.Max() == results.First()); // sanity check (also tests comparator)
                 position.BestMoves.AddRange(results);
-
-                var bestmove = results.Max();
-                Ut.Assert(bestmove == results.First());
-                Console.Write($"    analysing best move {bestmove.Move} to depth {depth}...");
-                start = DateTime.UtcNow;
-                if (bestmove.Move == null)
-                    bestmove.EvalPlusOne = bestmove.Eval;
-                else
-                {
-                    var board = ChessBoard.LoadFromFen(position.Fen);
-                    board.Move(bestmove.Move);
-                    results = stockfish.AnalyseFenToDepth(board.ToFen(), depth, 1);
-                    Ut.Assert(results.Count() == 1);
-                    bestmove.EvalPlusOne = -results.First().Eval;
-                }
-                Console.WriteLine($" {(DateTime.UtcNow - start).TotalSeconds:0.0} sec");
-
                 if (DateTime.UtcNow - lastSave > TimeSpan.FromSeconds(30))
                 {
                     SaveData();
@@ -209,9 +188,8 @@ static class Program
                     moveshtml.Add(new DIV(pos.MoveTaken) { class_ = "movetaken" });
 
                     var posValueAfterMove = -bestMove[p + 1].Eval;
-                    //var bestMoveValue = pos.BestMoves.Where(m => m.Depth == depth).Max(m => m.Eval);
-                    //var movediff = posValueAfterMove - bestMoveValue; // this is identical. the problem is that bestmoves are evaluated at current depth while actual move is evaluated at depth+1 (it's the next position's bestmove).
-                    var movediff = posValueAfterMove - bestMove[p].EvalPlusOne.Value;
+                    var matchingBest = pos.BestMoves.Where(m => m.Depth == depth).FirstOrDefault(m => m.Move == pos.MoveTaken);
+                    var movediff = matchingBest == null ? posValueAfterMove - bestMove[p].Eval : (matchingBest.Eval - bestMove[p].Eval);
                     (pos.IsBlackMove ? movediffsB : movediffsW).Add(movediff);
                     if (!isMateEval(bestMove[p].Eval) && !isMateEval(bestMove[p + 1].Eval))
                         moveshtml.Add(new DIV(strval(movediff)) { class_ = "movediff ra " + (movediff < -700 ? "blunder" : movediff < -450 ? "mistake" : movediff < -160 ? "inacc" : movediff < -90 ? "meh" : "") });
@@ -443,7 +421,6 @@ class AnalysisMove : IComparable<AnalysisMove>
     public string PV;
     public int Depth;
     public int Eval => !_isMate ? _score : _score == 0 ? -100_000_000 : (1_000_000 * Math.Sign(_score) * (100 - Math.Abs(_score))); // from the perspective of the player making the move.
-    public int? EvalPlusOne; // take this move and find the eval of the best response at the same depth - only done for actual best moves - to match how the worth of the actual move taken is evaluated
 
     public int CompareTo(AnalysisMove other) => this.Eval.CompareTo(other.Eval);
 
