@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -14,35 +14,42 @@ using RT.Util.ExtensionMethods;
 
 namespace FessBatchAnalyser;
 
+class Settings
+{
+    public string StockfishPath = null;
+    public string ChessComUsername = null; // null = don't download
+    public List<int> Depths = new(); // 10=0.10 sec, 16=0.75sec, 20=3.4sec, 24=11.5sec, 28=30sec
+    public HashSet<string> ChessComTimeFilter = new();
+}
+
 static class Program
 {
+    public static string DataPath;
+    public static Settings Settings;
     public static AnalysisData Data;
-    public static string GamesPath;
-    public static string AnalysisDataPath;
-    public static string AnalysisOutputPath;
-    public static string StockfishPath;
-    public static int[] Depths = new[] { 10 /*0.10 sec*/, 16 /*0.75sec*/, 20 /*3.4sec*/, 24 /*11.5sec*/, 28 /*30sec*/ };
 
-    public static void Main()
+    public static void Main(string[] args)
     {
         //Tests.Test();
+        DataPath = args[0];
+        Settings = LoadXml<Settings>(Path.Combine(DataPath, "settings.xml"));
 
         var stockfish = new Stockfish();
         stockfish.Start();
 
         LoadData();
-        //ImportNewGames(LoadPgnGames(DownloadChessComPgn("???", 2023, 03)).Where(g => g.TimeControl is "600" or "900+10"));
+        //ImportNewGames(LoadPgnGames(DownloadChessComPgn(Settings.ChessComUsername, 2023, 03)).Where(g => Settings.ChessComTimeFilter.Contains(g.TimeControl)));
         //ImportNewGames(LoadPgnGames(File.ReadAllText(GamesPath)));
         SaveData();
 
         var lastSave = DateTime.UtcNow;
         var lastGen = DateTime.UtcNow;
-        foreach (var depth in Depths) //.Concat(Enumerable.Range(Depths.Max() + 1, 50))) // infinite
+        foreach (var depth in Settings.Depths.Order()) //.Concat(Enumerable.Range(Depths.Max() + 1, 50))) // infinite
         {
             var positions = Data.Games.Values.OrderBy(g => g.StartedAt).SelectMany(g => g.Positions).Where(p => !p.BestMoves.Any(m => m.Depth == depth)).ToList();
             if (positions.Count == 0)
                 continue;
-            if (depth > Depths.Min())
+            if (depth > Settings.Depths.Min())
                 Generate();
             foreach (var position in positions)
             {
@@ -57,7 +64,7 @@ static class Program
                     SaveData();
                     lastSave = DateTime.UtcNow;
                 }
-                if (DateTime.UtcNow - lastGen > TimeSpan.FromMinutes(5) && depth > Depths.Min())
+                if (DateTime.UtcNow - lastGen > TimeSpan.FromMinutes(5) && depth > Settings.Depths.Min())
                 {
                     Generate();
                     lastGen = DateTime.UtcNow;
@@ -73,16 +80,22 @@ static class Program
     {
         var url = $"https://api.chess.com/pub/player/{username}/games/{year}/{month:00}/pgn";
         var pgn = new HttpClient().GetStringAsync(url).GetAwaiter().GetResult();
-        File.WriteAllText(Path.Combine(Path.GetDirectoryName(GamesPath), $"chess.com-games-{username}-{year}-{month:00}.pgn"), pgn);
+        File.WriteAllText(Path.Combine(DataPath, $"chess.com-games-{username}-{year}-{month:00}.pgn"), pgn);
         return pgn;
+    }
+
+    private static T LoadXml<T>(string path) where T : new()
+    {
+        if (File.Exists(path))
+            return ClassifyXml.DeserializeFile<T>(path);
+        var val = new T();
+        ClassifyXml.SerializeToFile(val, path);
+        return val;
     }
 
     private static void LoadData()
     {
-        if (File.Exists(AnalysisDataPath))
-            Data = ClassifyXml.DeserializeFile<AnalysisData>(AnalysisDataPath);
-        else
-            Data = new();
+        Data = LoadXml<AnalysisData>(Path.Combine(DataPath, "data.xml"));
         foreach (var game in Data.Games.Values)
             foreach (var pos in game.Positions)
                 pos.Game = game;
@@ -90,7 +103,7 @@ static class Program
 
     private static void SaveData()
     {
-        ClassifyXml.SerializeToFile(Data, AnalysisDataPath);
+        ClassifyXml.SerializeToFile(Data, Path.Combine(DataPath, "data.xml"));
     }
 
     private static void ImportNewGames(IEnumerable<AnalysisGame> games)
@@ -229,7 +242,7 @@ static class Program
         using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("FessBatchAnalyser.Css.Analysis.css");
         var css = stream.ReadAllText();
         var thtml = new HTML(new HEAD(new META { charset = "utf-8" }, new STYLELiteral(css)), new BODY(html));
-        File.WriteAllText(AnalysisOutputPath, thtml.ToString());
+        File.WriteAllText(Path.Combine(DataPath, "analysis.html"), thtml.ToString());
     }
 }
 
@@ -244,7 +257,7 @@ class Stockfish
     {
         var psi = new ProcessStartInfo
         {
-            FileName = Program.StockfishPath,
+            FileName = Program.Settings.StockfishPath,
             UseShellExecute = false,
             CreateNoWindow = false,
             WindowStyle = ProcessWindowStyle.Hidden,
