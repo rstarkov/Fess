@@ -1,0 +1,120 @@
+﻿@import url('https://fonts.googleapis.com/css?family=Open+Sans');
+@import url('https://fonts.googleapis.com/css?family=Roboto');
+
+body {
+    font-family: 'Roboto', sans-serif;
+    font-size: 15px;
+    background: #222;
+    color: #fff;
+    margin: 0;
+    padding: 15px;
+}
+
+h1, h2, h3, h4, h5, th {
+    font-family: 'Open Sans', sans-serif;
+}
+
+h1 {
+    margin-top: 0;
+}
+
+h3 {
+    margin-top: 30px;
+}
+
+p {
+    margin: 0;
+    padding: 0;
+}
+
+a {
+    color: #e9cb05;
+}
+
+    a:visited {
+        color: #de7910;
+    }
+
+.ra {
+    text-align: right;
+}
+
+.la {
+    text-align: left;
+}
+
+.ca {
+    text-align: center;
+}
+
+div.movetable {
+    display: grid;
+    grid-template-columns: repeat(9, min-content);
+    grid-gap: 0 10px;
+    align-items: baseline;
+}
+div.movetable > div {
+    white-space: nowrap;
+}
+
+div.poseval {
+    padding: 0 5px;
+}
+div.poseval.advW          { background: #ccc; color: black; }
+div.poseval.advW.advSmall { background: #ddd; }
+div.poseval.advW.advBig   { background: #eee; }
+div.poseval.advW.advHuge  { background: #fff; }
+div.poseval.advB          { background: #181818; color: white; }
+div.poseval.advB.advSmall { background: #101010; }
+div.poseval.advB.advBig   { background: #080808; }
+div.poseval.advB.advHuge  { background: #000000; }
+
+div.movetaken {
+    margin-left: 35px;
+}
+
+div.movediff {
+    color: #666;
+}
+div.movediff.blunder { color: #f0f; }
+div.movediff.mistake { color: #f00; }
+div.movediff.inacc   { color: #ff0; }
+div.movediff.meh     { color: #fff; }
+
+div.moverank {
+    margin-right: 35px;
+    font-size: 0.8rem;
+    text-align: center;
+    color: #666;
+}
+div.moverank.rank1 {
+    color: #009300;
+}
+
+div.movehdr {
+    grid-column: span 9;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+div.movehdrcell {
+    text-align: center;
+    padding: 8px;
+}
+div.movehdrcell > span {
+    padding: 2px 10px;
+    font-size: 1.2rem;
+    margin-right: 5px;
+}
+div.movehdrcell.White > span {
+    background: white;
+    color: black;
+}
+div.movehdrcell.Black > span {
+    background: black;
+    color: white;
+}
+div.moveend {
+    grid-column: span 3;
+    margin-left: 35px;
+}
+

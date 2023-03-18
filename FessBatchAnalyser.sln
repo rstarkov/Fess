@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FessBatchAnalyser", "FessBatchAnalyser.csproj", "{300BA85B-EFD0-40D7-A986-81B8472722AB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FessBatchAnalyser", "Src\FessBatchAnalyser.csproj", "{300BA85B-EFD0-40D7-A986-81B8472722AB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChessLibrary", "ThirdParty\Gera.Chess\ChessLibrary\ChessLibrary.csproj", "{7EEF992C-16D4-4A7A-B7FD-6728A1A2B1D2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -12,5 +14,9 @@ Global
 		{300BA85B-EFD0-40D7-A986-81B8472722AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{300BA85B-EFD0-40D7-A986-81B8472722AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{300BA85B-EFD0-40D7-A986-81B8472722AB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7EEF992C-16D4-4A7A-B7FD-6728A1A2B1D2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7EEF992C-16D4-4A7A-B7FD-6728A1A2B1D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7EEF992C-16D4-4A7A-B7FD-6728A1A2B1D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7EEF992C-16D4-4A7A-B7FD-6728A1A2B1D2}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
