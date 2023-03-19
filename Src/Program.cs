@@ -200,14 +200,51 @@ static class Program
                     moveshtml.Add(divPosEval(bestMove[p].Eval * blackAdj, pos.Fen));
                     moveshtml.Add(new DIV(pos.MoveTaken) { class_ = "movetaken" });
 
-                    var posValueAfterMove = -bestMove[p + 1].Eval;
-                    var matchingBest = pos.BestMoves.Where(m => m.Depth == depth).FirstOrDefault(m => m.Move == pos.MoveTaken);
-                    var movediff = matchingBest == null ? posValueAfterMove - bestMove[p].Eval : (matchingBest.Eval - bestMove[p].Eval);
+                    // complex movediff: if the move taken was one of the multi-pv moves evaluated by stockfish then compare that eval vs best eval directly.
+                    // benefits: when taking best move, the diff is always exactly 0.0; the next 4 are a more precise diff at the same depth as the top move
+                    // drawbacks: more complicated for mate/no mate scenarios when it just about becomes possible to mate. Also median move goodness is more likely to be 0.0
+                    //var matchingBest = pos.BestMoves.Where(m => m.Depth == depth).FirstOrDefault(m => m.Move == pos.MoveTaken);
+                    //var movediff = matchingBest == null ? -bestMove[p + 1].Eval - bestMove[p].Eval : (matchingBest.Eval - bestMove[p].Eval);
+
+                    // simple movediff: just next eval minus current eval
+                    var movediff = -bestMove[p + 1].Eval - bestMove[p].Eval;
+
                     (pos.IsBlackMove ? movediffsB : movediffsW).Add(movediff);
-                    if (!isMateEval(bestMove[p].Eval) && !isMateEval(bestMove[p + 1].Eval))
+                    if (bestMove[p + 1].Move == null) // no further moves so no diff
+                        moveshtml.Add(new DIV() { class_ = "movediff ra" });
+                    else if (!bestMove[p].IsMate && !bestMove[p + 1].IsMate) // normal move, no mates before or after
                         moveshtml.Add(new DIV(strval(movediff)) { class_ = "movediff ra " + (movediff < -700 ? "blunder" : movediff < -450 ? "mistake" : movediff < -160 ? "inacc" : movediff < -90 ? "meh" : "") });
                     else
-                        moveshtml.Add(new DIV("") { class_ = "movediff ra " + (false ? "blunder" : "") });
+                    {
+                        // either before or after is a mate eval (or both)
+
+                        if (Math.Sign(bestMove[p].Eval) == Math.Sign(bestMove[p + 1].Eval)) // which side is winning has changed
+                            moveshtml.Add(new DIV("?!?!?!") { class_ = "movediff ra megablunder" }); // this is always a megablunder; it's not possible to go from a losing mate eval to a winning position by own move, because then the previous position wouldn't have had that eval
+                        // otherwise: same side is ahead as before
+
+                        else if (bestMove[p].IsMate && bestMove[p + 1].IsMate) // same side can still mate as before
+                        {
+                            var change = (-bestMove[p + 1].Raw - bestMove[p].Raw) * Math.Sign(bestMove[p].Raw);
+                            var min = Math.Min(Math.Abs(bestMove[p].Raw), Math.Abs(bestMove[p + 1].Raw));
+                            moveshtml.Add(new DIV($"({change:+#;−#;0})") { class_ = "movediff ra " + (Math.Abs(change) > 2 * min ? "mistake" : Math.Abs(change) > min ? "inacc" : "") }); // a mate is a mate so a big change is not as bad as a big blunder. It's never not a blunder because optimal play means a change by ~1
+                        }
+                        else
+                        {
+                            // it could be: player gained ability to mate; player lost own ability to mate; opponent gained ability to mate (but player was already losing). Also occasionally it's opponent lost ability to mate, but only in extreme corner cases at the limit of depth
+
+                            if (bestMove[p].IsMate && bestMove[p].Raw < 0) // player changed his own losing mate eval into a losing non-mate eval, which is a corner-case at the limit of depth, eg going from "losing to mate in 54 moves" to "losing by 88 pawns", which is technically an improvement
+                                moveshtml.Add(new DIV("(−mate)") { class_ = "movediff ra" }); // it's never a very relevant change
+                            else if (bestMove[p].IsMate) // was a mate eval, now a winning non-mate eval, it could be anywhere from irrelevant to a big blunder depending on size of change
+                                moveshtml.Add(new DIV("−mate") { class_ = "movediff ra " + (bestMove[p].Raw <= 2 ? "blunder" : bestMove[p].Raw <= 5 ? "mistake" : (bestMove[p].Raw <= 10 || -bestMove[p + 1].Raw < 20) ? "inacc" : "") });
+                            else if (bestMove[p].Raw <= 0)
+                            {
+                                var megablunder = bestMove[p].Raw > -7_00 || (bestMove[p].Raw > -12_00 && bestMove[p + 1].Raw <= 4);
+                                moveshtml.Add(new DIV(megablunder ? "?!?!?!" : "+mate") { class_ = "movediff ra " + (megablunder ? "megablunder" : bestMove[p].Raw > -14_00 ? "blunder" : (bestMove[p].Raw > -20_00 || bestMove[p + 1].Raw <= 10) ? "mistake" : "") });
+                            }
+                            else // winning position acquiring a mate - never a very relevant change
+                                moveshtml.Add(new DIV("(+mate)") { class_ = "movediff ra" });
+                        }
+                    }
 
                     var moves = pos.BestMoves.Where(m => m.Depth == depth).OrderByDescending(m => m.Eval).ToList();
                     var takenRank = moves.IndexOf(m => m.Move == pos.MoveTaken) + 1;
@@ -215,7 +252,7 @@ static class Program
                     moveshtml.Add(new DIV(rankstr) { class_ = "moverank" + (takenRank switch { 1 => " rank1", 0 => " rankN", _ => "" }) });
 
                     if (pos.IsBlackMove)
-                        moveshtml.Add(divPosEval(posValueAfterMove * blackAdj, game.Positions[p + 1].Fen));
+                        moveshtml.Add(divPosEval(-bestMove[p + 1].Eval * blackAdj, game.Positions[p + 1].Fen));
                 }
                 else
                 {
@@ -420,23 +457,23 @@ class AnalysisPos
 
 class AnalysisMove : IComparable<AnalysisMove>
 {
-    private int _score;
-    private bool _isMate;
+    public int Raw { get; private set; }
+    public bool IsMate { get; private set; }
     private AnalysisMove() { }
     public AnalysisMove(int score, bool isMate)
     {
-        _score = score;
-        _isMate = isMate;
-        if (_isMate) Ut.Assert(Math.Abs(_score) < 100);
+        Raw = score;
+        IsMate = isMate;
+        if (IsMate) Ut.Assert(Math.Abs(Raw) < 100);
     }
 
     public string Move;
     public string PV;
     public int Depth;
-    public int Eval => !_isMate ? _score : _score == 0 ? -100_000_000 : (1_000_000 * Math.Sign(_score) * (100 - Math.Abs(_score))); // from the perspective of the player making the move.
+    public int Eval => !IsMate ? Raw : Raw == 0 ? -100_000_000 : (1_000_000 * Math.Sign(Raw) * (100 - Math.Abs(Raw))); // from the perspective of the player making the move.
 
     public int CompareTo(AnalysisMove other) => this.Eval.CompareTo(other.Eval);
 
-    private string evalDesc => !_isMate ? $"{_score / 100.0:0.00}" : (_score == 0 ? "lost" : _score > 0 ? $"win in {_score}" : $"lose in {-_score}");
+    private string evalDesc => !IsMate ? $"{Raw / 100.0:0.00}" : (Raw == 0 ? "lost" : Raw > 0 ? $"win in {Raw}" : $"lose in {-Raw}");
     public override string ToString() => $"{Depth}-ply: {Move} = {evalDesc}; pv = {PV}";
 }

@@ -76,6 +76,7 @@ div.movetaken {
 div.movediff {
     color: #666;
 }
+div.movediff.megablunder { color: #f0f; }
 div.movediff.blunder { color: #f0f; }
 div.movediff.mistake { color: #f00; }
 div.movediff.inacc   { color: #ff0; }
