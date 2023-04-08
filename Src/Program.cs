@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -18,6 +18,8 @@ class Settings
 {
     public string StockfishPath = null;
     public string ChessComUsername = null; // null = don't download
+    public string ChessComFromMonth = null;
+    public DateTime ChessComFromMonthDate => DateTime.Parse(ChessComFromMonth);
     public List<int> Depths = new(); // 10=0.10 sec, 16=0.75sec, 20=3.4sec, 24=11.5sec, 28=30sec
     public HashSet<string> ChessComTimeFilter = new();
 }
@@ -34,12 +36,18 @@ static class Program
         DataPath = args[0];
         Settings = LoadXml<Settings>(Path.Combine(DataPath, "settings.xml"));
 
+        //for (var d = new DateTime(Settings.ChessComFromMonthDate.Year, Settings.ChessComFromMonthDate.Month, 1); d <= DateTime.Now; d = d.AddMonths(1))
+        //    DownloadChessComPgn(Settings.ChessComUsername, d.Year, d.Month);
+        DownloadChessComPgn(Settings.ChessComUsername, DateTime.Now.Year, DateTime.Now.Month);
+        var allGames = LoadAllChessComGames(Settings.ChessComUsername, Settings.ChessComFromMonthDate.Year, Settings.ChessComFromMonthDate.Month);
+        Stats.Generate(allGames);
+        //return;
+
         var stockfish = new Stockfish();
         stockfish.Start();
 
         LoadData();
-        //ImportNewGames(LoadPgnGames(DownloadChessComPgn(Settings.ChessComUsername, 2023, 03)).Where(g => Settings.ChessComTimeFilter.Contains(g.TimeControl)));
-        //ImportNewGames(LoadPgnGames(File.ReadAllText(GamesPath)));
+        ImportNewGames(allGames.Where(g => Settings.ChessComTimeFilter.Contains(g.TimeControl)));
         SaveData();
 
         var lastSave = DateTime.UtcNow;
@@ -82,6 +90,19 @@ static class Program
         var pgn = new HttpClient().GetStringAsync(url).GetAwaiter().GetResult();
         File.WriteAllText(Path.Combine(DataPath, $"chess.com-games-{username}-{year}-{month:00}.pgn"), pgn);
         return pgn;
+    }
+
+    private static string ReadChessComPgn(string username, int year, int month)
+    {
+        return File.ReadAllText(Path.Combine(DataPath, $"chess.com-games-{username}-{year}-{month:00}.pgn"));
+    }
+
+    private static List<AnalysisGame> LoadAllChessComGames(string username, int fromYear, int fromMonth)
+    {
+        var results = new List<AnalysisGame>();
+        for (var d = new DateTime(fromYear, fromMonth, 1); d <= DateTime.Now; d = d.AddMonths(1))
+            results.AddRange(LoadPgnGames(ReadChessComPgn(username, d.Year, d.Month)));
+        return results;
     }
 
     private static T LoadXml<T>(string path) where T : new()
