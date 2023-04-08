@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -125,6 +125,8 @@ static class Program
         var pgnlines = Regex.Split(pgn, @"\r?\n");
         var ln = 0;
         var games = new List<AnalysisGame>();
+        if (pgn == "")
+            return games;
         while (ln < pgnlines.Length)
         {
             var props = new Dictionary<string, string>();
@@ -442,6 +444,12 @@ class AnalysisGame
     public override string ToString() => $"[{Hash[..6]}]: {Props["White"]} vs {Props["Black"]} at {StartedAt}";
     public string TimeControl => Props["TimeControl"];
     public Instant StartedAt => InstantPattern.General.Parse(Props["UTCDate"].Replace(".", "-") + "T" + Props["UTCTime"] + "Z").Value;
+
+    public string PlayerColor(string player) => Props["White"] == player ? "White" : Props["Black"] == player ? "Black" : throw new Exception($"No such player: {player}");
+    public string OpponentColor(string player) => Props["White"] == player ? "Black" : Props["Black"] == player ? "White" : throw new Exception($"No such player: {player}");
+    public int PlayerElo(string player) => int.Parse(Props[PlayerColor(player) + "Elo"]);
+    public int OpponentElo(string player) => int.Parse(Props[OpponentColor(player) + "Elo"]);
+    public double WinVal(string player) => Props["Result"] == "1/2-1/2" ? 0.5 : Props["Result"] == "1-0" ? (PlayerColor(player) == "White" ? 1 : 0) : (PlayerColor(player) == "White" ? 0 : 1);
 }
 
 class AnalysisPos
