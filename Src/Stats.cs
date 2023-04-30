@@ -96,13 +96,15 @@ static class Stats
     private static object ImpliedEloOverTime(IEnumerable<AugGame> games)
     {
         var gs = games.OrderBy(g => g.Game.StartedAt).ToList();
+        bool showImpliedElo = true;
+        again:;
         for (int tgtWinrate = 55; tgtWinrate <= 75; tgtWinrate += 5)
             for (int window = 10; window < gs.Count / 2; window++)
             {
                 var results = new List<(int at, int? lowerElo, int? upperElo, int trueElo)>();
                 for (int i = 0; i < gs.Count; i++)
                 {
-                    if (i - window / 2 >= 0 && i - window / 2 + window <= gs.Count)
+                    if (showImpliedElo && i - window / 2 >= 0 && i - window / 2 + window <= gs.Count)
                     {
                         var impliedElo = eloRangeFromWinrate(gs.Skip(i - window / 2).Take(window), tgtWinrate);
                         if (impliedElo == null)
@@ -115,6 +117,8 @@ static class Stats
                 var minX = 0;
                 var maxX = results.Count - 1;
                 var maxY = (int)Math.Ceiling(results.Max(r => r.upperElo ?? 0) * 6.0 / 5.0 / 50.0) * 50;
+                if (!showImpliedElo)
+                    maxY = (int)Math.Ceiling(results.Max(r => r.trueElo) * 6.0 / 5.0 / 50.0) * 50;
                 var svg = new StringBuilder();
                 svg.Append($"<svg width='500px' height='300px' viewBox='0 0 {maxX} {maxY}' preserveAspectRatio='none' style='border: 1px solid #999; margin: 10px; background: #222;' xmlns='http://www.w3.org/2000/svg'><g>");
                 //svg.Append($"<rect fill='none' stroke='#921' x='0' y='0' width='{maxX}' height='{maxY}' vector-effect='non-scaling-stroke' />");
@@ -126,7 +130,10 @@ static class Stats
                 return new RawTag(svg.ToString());
                 bad:;
             }
-        return null;
+        if (!showImpliedElo)
+            return null; // not enough points for the smallest window size
+        showImpliedElo = false;
+        goto again;
     }
 
     private static (int lowerElo, int upperElo)? eloRangeFromWinrate(IEnumerable<AugGame> games, int tgtWinrate)
