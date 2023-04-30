@@ -99,23 +99,28 @@ static class Stats
         for (int tgtWinrate = 55; tgtWinrate <= 75; tgtWinrate += 5)
             for (int window = 10; window < gs.Count / 2; window++)
             {
-                var results = new List<(Instant at, int lowerElo, int upperElo)>();
-                for (int i = 0; i < gs.Count - window; i++)
+                var results = new List<(int at, int? lowerElo, int? upperElo, int trueElo)>();
+                for (int i = 0; i < gs.Count; i++)
                 {
-                    var impliedElo = eloRangeFromWinrate(gs.Skip(i).Take(window), tgtWinrate);
-                    if (impliedElo == null)
-                        goto bad;
-                    results.Add((gs[i + window / 2].Game.StartedAt, impliedElo.Value.lowerElo, impliedElo.Value.upperElo));
+                    if (i - window / 2 >= 0 && i - window / 2 + window <= gs.Count)
+                    {
+                        var impliedElo = eloRangeFromWinrate(gs.Skip(i - window / 2).Take(window), tgtWinrate);
+                        if (impliedElo == null)
+                            goto bad;
+                        results.Add((i, impliedElo.Value.lowerElo, impliedElo.Value.upperElo, gs[i].MyElo));
+                    }
+                    else
+                        results.Add((i, null, null, gs[i].MyElo));
                 }
                 var minX = 0;
                 var maxX = results.Count - 1;
-                var maxY = (int) Math.Ceiling(results.Max(r => r.upperElo) * 6.0 / 5.0 / 50.0) * 50;
-                //var maxY = results.Max(r => r.upperElo);
+                var maxY = (int)Math.Ceiling(results.Max(r => r.upperElo ?? 0) * 6.0 / 5.0 / 50.0) * 50;
                 var svg = new StringBuilder();
                 svg.Append($"<svg width='500px' height='300px' viewBox='0 0 {maxX} {maxY}' preserveAspectRatio='none' style='border: 1px solid #999; margin: 10px; background: #222;' xmlns='http://www.w3.org/2000/svg'><g>");
                 //svg.Append($"<rect fill='none' stroke='#921' x='0' y='0' width='{maxX}' height='{maxY}' vector-effect='non-scaling-stroke' />");
-                svg.Append($"<polyline fill='none' stroke='#f31' points='{results.Select((r, i) => $"{i},{maxY - r.lowerElo}").JoinString(" ")}' vector-effect='non-scaling-stroke' />");
-                svg.Append($"<polyline fill='none' stroke='#f31' points='{results.Select((r, i) => $"{i},{maxY - r.upperElo}").JoinString(" ")}' vector-effect='non-scaling-stroke' />");
+                svg.Append($"<polyline fill='none' stroke='#ff0' points='{results.Where(r => r.lowerElo != null).Select(r => $"{r.at},{maxY - r.lowerElo}").JoinString(" ")}' vector-effect='non-scaling-stroke' />");
+                svg.Append($"<polyline fill='none' stroke='#ff0' points='{results.Where(r => r.upperElo != null).Select(r => $"{r.at},{maxY - r.upperElo}").JoinString(" ")}' vector-effect='non-scaling-stroke' />");
+                svg.Append($"<polyline fill='none' stroke='#f31' stroke-opacity='0.5' points='{results.Select(r => $"{r.at},{maxY - r.trueElo}").JoinString(" ")}' vector-effect='non-scaling-stroke' />");
                 for (int y = 100; y < maxY; y += 100)
                     svg.Append($"<polyline fill='none' stroke='#888' points='0 {y} {maxX} {y}' vector-effect='non-scaling-stroke' stroke-dasharray='3 3' />");
                 return new RawTag(svg.ToString());
