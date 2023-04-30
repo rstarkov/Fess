@@ -122,7 +122,7 @@ static class Stats
                 svg.Append($"<polyline fill='none' stroke='#ff0' points='{results.Where(r => r.upperElo != null).Select(r => $"{r.at},{maxY - r.upperElo}").JoinString(" ")}' vector-effect='non-scaling-stroke' />");
                 svg.Append($"<polyline fill='none' stroke='#f31' stroke-opacity='0.5' points='{results.Select(r => $"{r.at},{maxY - r.trueElo}").JoinString(" ")}' vector-effect='non-scaling-stroke' />");
                 for (int y = 100; y < maxY; y += 100)
-                    svg.Append($"<polyline fill='none' stroke='#888' points='0 {y} {maxX} {y}' vector-effect='non-scaling-stroke' stroke-dasharray='3 3' />");
+                    svg.Append($"<polyline fill='none' stroke='#888' points='0 {maxY - y} {maxX} {maxY - y}' vector-effect='non-scaling-stroke' stroke-dasharray='3 3' />");
                 return new RawTag(svg.ToString());
                 bad:;
             }
